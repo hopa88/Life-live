@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"/>
+<meta name="theme-color" content="#7c3aed"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<meta name="apple-mobile-web-app-title" content="Extract Bancar"/>
+<title>💳 Extract Bancar</title>
+
+<script id="manifest-data" type="application/json">
+{
+  "name": "Analiză Extract Bancar",
+  "short_name": "Extract",
+  "description": "Vizualizare cheltuieli și planificare economii credit",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#0f0c29",
+  "theme_color": "#7c3aed",
+  "icons": [
+    {"src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'%3E%3Crect width='192' height='192' rx='32' fill='%237c3aed'/%3E%3Ctext x='96' y='130' text-anchor='middle' font-size='100'%3E💳%3C/text%3E%3C/svg%3E", "sizes": "192x192", "type": "image/svg+xml"}
+  ]
+}
+</script>
+<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'%3E%3Crect width='180' height='180' rx='28' fill='%237c3aed'/%3E%3Ctext x='90' y='122' text-anchor='middle' font-size='90'%3E💳%3C/text%3E%3C/svg%3E"/>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+:root{
+  --bg:#0f0c29;--bg2:#1a1630;--bg3:#231f3a;
+  --purple:#7c3aed;--purple-light:#a78bfa;
+  --green:#4ade80;--red:#f87171;--yellow:#fbbf24;--blue:#60a5fa;
+  --text:#e2e8f0;--muted:#6b7280;--border:rgba(255,255,255,0.08);
+}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;overflow-x:hidden;}
+body{display:flex;flex-direction:column;max-width:500px;margin:0 auto;}
+
+.header{background:rgba(124,58,237,0.15);border-bottom:1px solid var(--border);padding:14px 16px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;backdrop-filter:blur(12px);}
+.header-title{font-size:17px;font-weight:800;color:var(--purple-light);}
+.header-sub{font-size:10px;color:var(--muted);margin-top:1px;}
+
+.import-area{display:flex;flex-direction:column;gap:6px;align-items:flex-end;}
+.import-btn{color:#fff;border:none;padding:7px 12px;border-radius:18px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;}
+.btn-pdf{background:linear-gradient(135deg,#dc2626,#f87171);}
+.btn-csv{background:linear-gradient(135deg,var(--purple),var(--purple-light));}
+
+.tabs{display:flex;background:var(--bg2);border-bottom:1px solid var(--border);}
+.tab{flex:1;padding:10px 4px;text-align:center;font-size:11px;font-weight:600;color:var(--muted);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;transition:all .2s;}
+.tab.active{color:var(--purple-light);border-bottom-color:var(--purple-light);background:rgba(167,139,250,0.06);}
+
+.page{display:none;padding:14px 14px 80px;flex:1;overflow-y:auto;}
+.page.active{display:block;}
+
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:14px 16px;margin-bottom:12px;}
+.card-title{font-size:12px;font-weight:700;color:var(--text);margin-bottom:12px;}
+
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;}
+.stat{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:12px 14px;}
+.stat-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;}
+.stat-value{font-size:20px;font-weight:800;margin-top:3px;}
+.stat-sub{font-size:10px;color:var(--muted);margin-top:1px;}
+
+.input-row{display:flex;align-items:center;gap:8px;margin-bottom:8px;}
+.input-label{font-size:11px;color:var(--muted);flex:1;}
+.input-field{background:rgba(167,139,250,0.12);border:1px solid rgba(167,139,250,0.3);border-radius:8px;padding:6px 10px;color:var(--purple-light);font-size:14px;font-weight:700;width:100px;text-align:right;}
+.input-unit{font-size:11px;color:var(--muted);width:28px;}
+
+.cat-item{display:flex;align-items:center;gap:8px;margin-bottom:8px;}
+.cat-icon{font-size:16px;width:22px;text-align:center;}
+.cat-name{font-size:11px;color:var(--text);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.cat-bar-wrap{width:70px;background:rgba(255,255,255,0.06);border-radius:6px;height:6px;overflow:hidden;}
+.cat-bar{height:100%;border-radius:6px;transition:width .6s;}
+.cat-amount{font-size:12px;font-weight:700;width:60px;text-align:right;}
+.cat-pct{font-size:10px;color:var(--muted);width:28px;text-align:right;}
+
+.txn-item{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);}
+.txn-icon{font-size:18px;width:34px;height:34px;background:rgba(255,255,255,0.06);border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.txn-desc{flex:1;font-size:12px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.txn-amount{font-size:13px;font-weight:700;color:var(--red);white-space:nowrap;}
+select.cat-select{font-size:10px;padding:2px 4px;background:var(--bg3);border:1px solid var(--purple);border-radius:6px;color:var(--purple-light);margin-top:2px;}
+
+.proj-row{display:flex;justify-content:space-between;align-items:center;background:rgba(255,255,255,0.04);border-radius:10px;padding:11px 14px;margin-bottom:8px;}
+.proj-label{font-size:12px;color:var(--muted);}
+.proj-value{font-size:16px;font-weight:800;}
+.tip-box{background:rgba(167,139,250,0.08);border:1px solid rgba(167,139,250,0.2);border-radius:12px;padding:12px 14px;margin-top:10px;}
+.tip-title{font-size:12px;color:var(--purple-light);font-weight:700;margin-bottom:8px;}
+.tip-item{font-size:11px;color:var(--muted);margin-bottom:5px;}
+
+/* PDF loading overlay */
+.overlay{display:none;position:fixed;inset:0;background:rgba(15,12,41,0.92);z-index:300;flex-direction:column;align-items:center;justify-content:center;gap:16px;}
+.overlay.show{display:flex;}
+.spinner{width:48px;height:48px;border:4px solid rgba(167,139,250,0.2);border-top-color:var(--purple-light);border-radius:50%;animation:spin .8s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg)}}
+.overlay-text{font-size:14px;color:var(--purple-light);font-weight:600;}
+.overlay-sub{font-size:12px;color:var(--muted);}
+
+/* PDF result banner */
+.pdf-result{display:none;background:rgba(74,222,128,0.1);border:1px solid rgba(74,222,128,0.3);border-radius:12px;padding:12px 16px;margin-bottom:12px;font-size:12px;color:var(--green);}
+.pdf-result.show{display:block;}
+.pdf-warn{background:rgba(251,191,36,0.1);border-color:rgba(251,191,36,0.3);color:var(--yellow);}
+
+.install-banner{display:none;position:fixed;bottom:0;left:0;right:0;max-width:500px;margin:0 auto;background:linear-gradient(135deg,var(--purple),#5b21b6);padding:14px 18px;z-index:200;border-top:1px solid rgba(255,255,255,0.15);}
+.install-banner.show{display:flex;align-items:center;gap:12px;}
+.install-text{flex:1;font-size:13px;font-weight:600;}
+.install-text small{display:block;font-size:10px;opacity:.7;font-weight:400;margin-top:2px;}
+.install-yes{background:#fff;color:var(--purple);border:none;padding:8px 16px;border-radius:16px;font-size:12px;font-weight:700;cursor:pointer;}
+.install-no{background:transparent;border:none;color:rgba(255,255,255,.6);font-size:18px;cursor:pointer;padding:0 4px;}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div>
+    <div class="header-title">💳 Extract Bancar</div>
+    <div class="header-sub" id="file-name">Date demonstrative</div>
+  </div>
+  <div class="import-area">
+    <button class="import-btn btn-pdf" onclick="document.getElementById('pdf-input').click()">📄 Import PDF (BCR)</button>
+    <button class="import-btn btn-csv" onclick="document.getElementById('csv-input').click()">📊 Import CSV</button>
+  </div>
+  <input type="file" id="pdf-input" accept=".pdf" style="display:none" onchange="handlePDF(event)"/>
+  <input type="file" id="csv-input" accept=".csv,.txt" style="display:none" onchange="handleCSV(event)"/>
+</div>
+
+<div class="tabs">
+  <button class="tab active" onclick="switchTab('dashboard',this)">📊 Tablou</button>
+  <button class="tab" onclick="switchTab('tranzactii',this)">📋 Tranzacții</button>
+  <button class="tab" onclick="switchTab('credit',this)">🏠 Credit</button>
+</div>
+
+<!-- PDF loading overlay -->
+<div class="overlay" id="overlay">
+  <div class="spinner"></div>
+  <div class="overlay-text">Citesc PDF-ul BCR...</div>
+  <div class="overlay-sub">Extrag tranzacțiile automat</div>
+</div>
+
+<!-- DASHBOARD -->
+<div id="page-dashboard" class="page active">
+  <div class="pdf-result" id="pdf-result"></div>
+
+  <div class="card">
+    <div class="card-title">⚙️ Setări lunare</div>
+    <div class="input-row">
+      <span class="input-label">💰 Venit lunar net</span>
+      <input class="input-field" type="number" id="income" value="5500" oninput="refresh()"/>
+      <span class="input-unit">RON</span>
+    </div>
+    <div class="input-row">
+      <span class="input-label">🎯 Economii țintă/lună</span>
+      <input class="input-field" id="target" type="number" value="500" style="border-color:rgba(251,191,36,.4);color:#fbbf24;" oninput="refresh()"/>
+      <span class="input-unit">RON</span>
+    </div>
+  </div>
+
+  <div class="stats">
+    <div class="stat" style="border-left:3px solid var(--green)">
+      <div class="stat-label">Venit</div>
+      <div class="stat-value" id="s-income" style="color:var(--green)">0</div>
+      <div class="stat-sub">lunar net</div>
+    </div>
+    <div class="stat" style="border-left:3px solid var(--red)">
+      <div class="stat-label">Cheltuieli</div>
+      <div class="stat-value" id="s-total" style="color:var(--red)">0</div>
+      <div class="stat-sub" id="s-txn-count">0 tranzacții</div>
+    </div>
+    <div class="stat" style="border-left:3px solid var(--purple-light)">
+      <div class="stat-label">Sold rămas</div>
+      <div class="stat-value" id="s-balance" style="color:var(--purple-light)">0</div>
+      <div class="stat-sub">după cheltuieli</div>
+    </div>
+    <div class="stat" style="border-left:3px solid var(--yellow)">
+      <div class="stat-label">Economii pos.</div>
+      <div class="stat-value" id="s-savings" style="color:var(--yellow)">0</div>
+      <div class="stat-sub">spre credit</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">🥧 Distribuție cheltuieli</div>
+    <canvas id="pie-chart" height="220"></canvas>
+  </div>
+
+  <div class="card">
+    <div class="card-title">📋 Pe categorii</div>
+    <div id="cat-list"></div>
+  </div>
+</div>
+
+<!-- TRANZACȚII -->
+<div id="page-tranzactii" class="page">
+  <div class="card" style="margin-bottom:10px;">
+    <div style="font-size:11px;color:var(--muted);">Apasă pe categorie pentru a o modifica manual.</div>
+  </div>
+  <div id="txn-list"></div>
+</div>
+
+<!-- CREDIT -->
+<div id="page-credit" class="page">
+  <div class="card">
+    <div class="card-title">⚙️ Parametri</div>
+    <div class="input-row">
+      <span class="input-label">💰 Venit lunar net</span>
+      <input class="input-field" type="number" id="income2" value="5500" oninput="syncIncome(this)"/>
+      <span class="input-unit">RON</span>
+    </div>
+    <div class="input-row">
+      <span class="input-label">🎯 Economii țintă/lună</span>
+      <input class="input-field" type="number" id="target2" value="500" style="border-color:rgba(251,191,36,.4);color:#fbbf24;" oninput="syncTarget(this)"/>
+      <span class="input-unit">RON</span>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-title">📈 Acumulare economii</div>
+    <canvas id="bar-chart" height="180"></canvas>
+  </div>
+  <div class="card">
+    <div class="card-title">🗓 Proiecție</div>
+    <div class="proj-row"><span class="proj-label">⏳ 3 luni</span><span class="proj-value" id="p3" style="color:var(--red)"></span></div>
+    <div class="proj-row"><span class="proj-label">⏳ 6 luni</span><span class="proj-value" id="p6" style="color:var(--yellow)"></span></div>
+    <div class="proj-row"><span class="proj-label">⏳ 12 luni</span><span class="proj-value" id="p12" style="color:var(--green)"></span></div>
+    <div class="proj-row"><span class="proj-label">⏳ 24 luni</span><span class="proj-value" id="p24" style="color:var(--blue)"></span></div>
+    <div class="tip-box">
+      <div class="tip-title">💡 Unde poți economisi mai mult</div>
+      <div id="tips-list"></div>
+    </div>
+  </div>
+</div>
+
+<div class="install-banner" id="install-banner">
+  <div>💳</div>
+  <div class="install-text">Instalează aplicația<small>Acces rapid de pe ecranul principal</small></div>
+  <button class="install-yes" id="install-yes">Instalează</button>
+  <button class="install-no" onclick="document.getElementById('install-banner').classList.remove('show')">✕</button>
+</div>
+
+<script>
+// Manifest
+(function(){
+  const data=document.getElementById('manifest-data').textContent;
+  const blob=new Blob([data],{type:'application/json'});
+  const link=document.createElement('link');
+  link.rel='manifest';link.href=URL.createObjectURL(blob);
+  document.head.appendChild(link);
+})();
+
+// Service Worker
+if('serviceWorker' in navigator){
+  const sw=`const C='eb-v2';self.addEventListener('install',e=>e.waitUntil(caches.open(C).then(c=>c.addAll(['./'])).then(()=>self.skipWaiting())));self.addEventListener('activate',e=>e.waitUntil(self.clients.claim()));self.addEventListener('fetch',e=>{if(e.request.method!=='GET')return;e.respondWith(caches.match(e.request).then(r=>r||fetch(e.request)));});`;
+  navigator.serviceWorker.register(URL.createObjectURL(new Blob([sw],{type:'application/javascript'}))).catch(()=>{});
+}
+
+// Install prompt
+let deferredPrompt;
+window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferredPrompt=e;document.getElementById('install-banner').classList.add('show');});
+document.getElementById('install-yes').onclick=()=>{if(deferredPrompt){deferredPrompt.prompt();deferredPrompt=null;}document.getElementById('install-banner').classList.remove('show');};
+const isIOS=/iPad|iPhone|iPod/.test(navigator.userAgent)&&!window.MSStream;
+if(isIOS&&!window.matchMedia('(display-mode: standalone)').matches){
+  const b=document.getElementById('install-banner');
+  b.querySelector('.install-text').innerHTML='Instalează pe iPhone<small>Apasă <b>Partajează</b> → <b>Adaugă pe ecran</b></small>';
+  b.querySelector('.install-yes').style.display='none';
+  b.classList.add('show');setTimeout(()=>b.classList.remove('show'),6000);
+}
+
+// PDF.js worker
+pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+// Categories
+const CATS={
+  "Mâncare & Restaurant":{kw:["kaufland","lidl","mega image","auchan","penny","profi","carrefour","mcdonald","kfc","pizza","restaurant","sushi","bistro","cafe","bar","pub","brutarie","patiserie","food","supermarket","hypermarket","market"],color:"#FF6B6B",icon:"🍔"},
+  "Transport":{kw:["uber","bolt","taxi","ratb","metrou","stb","benzinarie","petrom","mol","rompetrol","omv","autostrada","parking","parcare","carwash","combustibil","motorina","benzina"],color:"#4ECDC4",icon:"🚗"},
+  "Utilități":{kw:["enel","engie","digi","orange","vodafone","telekom","rcs","rds","apa nova","electrica","gaz","internet","telefon","abonament","utilit"],color:"#45B7D1",icon:"💡"},
+  "Sănătate":{kw:["farmacie","farmacia","catena","sensiblu","helpnet","clinica","stomatolog","dentist","optica","medicina","spital","cabinet"],color:"#96CEB4",icon:"💊"},
+  "Cumpărături":{kw:["emag","altex","flanco","dedeman","ikea","h&m","zara","reserved","pepco","decathlon","online","fashion","shop","store","magazin"],color:"#FFEAA7",icon:"🛍️"},
+  "Educație & Cultură":{kw:["librarie","carte","netflix","spotify","youtube","hbo","cinema","teatru","muzeu","curs","educatie","udemy","streaming"],color:"#DDA0DD",icon:"📚"},
+  "Credit & Bancă":{kw:["credit","rata","banca","bank","bcr","brd","ing","raiffeisen","cec","unicredit","alpha","revolut","economii","comision","taxa"],color:"#98FB98",icon:"🏦"},
+  "Altele":{kw:[],color:"#B0BEC5",icon:"📦"}
+};
+
+function categorize(desc){
+  const l=(desc||"").toLowerCase();
+  for(const [cat,d] of Object.entries(CATS)){
+    if(cat==="Altele") continue;
+    if(d.kw.some(k=>l.includes(k))) return cat;
+  }
+  return "Altele";
+}
+
+// Sample data
+let transactions=[
+  {desc:"KAUFLAND SRL",amt:320,cat:"Mâncare & Restaurant"},
+  {desc:"LIDL ROMANIA",amt:185,cat:"Mâncare & Restaurant"},
+  {desc:"MEGA IMAGE",amt:240,cat:"Mâncare & Restaurant"},
+  {desc:"RESTAURANT LA MAMA",amt:95,cat:"Mâncare & Restaurant"},
+  {desc:"UBER TRIP",amt:85,cat:"Transport"},
+  {desc:"PETROM BENZINARIE",amt:310,cat:"Transport"},
+  {desc:"DIGI RCS-RDS",amt:55,cat:"Utilități"},
+  {desc:"ORANGE ROMANIA",amt:45,cat:"Utilități"},
+  {desc:"ENEL ENERGIE",amt:190,cat:"Utilități"},
+  {desc:"NETFLIX",amt:47,cat:"Educație & Cultură"},
+  {desc:"EMAG ORDER",amt:380,cat:"Cumpărături"},
+  {desc:"FARMACIA CATENA",amt:65,cat:"Sănătate"},
+  {desc:"RATA CREDIT",amt:750,cat:"Credit & Bancă"},
+  {desc:"IKEA ROMANIA",amt:220,cat:"Cumpărături"},
+];
+
+// ── PDF Parser ────────────────────────────────────────────────────────────────
+async function handlePDF(e){
+  const file=e.target.files[0]; if(!file) return;
+  document.getElementById('overlay').classList.add('show');
+  document.getElementById('file-name').textContent=file.name;
+  try{
+    const buf=await file.arrayBuffer();
+    const pdf=await pdfjsLib.getDocument({data:buf}).promise;
+    let fullText='';
+    for(let i=1;i<=pdf.numPages;i++){
+      const page=await pdf.getPage(i);
+      const content=await page.getTextContent();
+      // Reconstruct lines by grouping items with similar Y position
+      const items=content.items;
+      const lines={};
+      items.forEach(item=>{
+        const y=Math.round(item.transform[5]);
+        if(!lines[y]) lines[y]=[];
+        lines[y].push({x:Math.round(item.transform[4]),str:item.str});
+      });
+      // Sort lines top to bottom, items left to right
+      const sortedY=Object.keys(lines).map(Number).sort((a,b)=>b-a);
+      sortedY.forEach(y=>{
+        const row=lines[y].sort((a,b)=>a.x-b.x).map(i=>i.str).join(' ');
+        fullText+=row+'\n';
+      });
+    }
+    const result=parseBCRText(fullText);
+    document.getElementById('overlay').classList.remove('show');
+    if(result.length>0){
+      transactions=result;
+      showPDFResult(true, result.length);
+      refresh(); renderTxns();
+    } else {
+      showPDFResult(false, 0, fullText);
+    }
+  } catch(err){
+    document.getElementById('overlay').classList.remove('show');
+    showPDFResult(false, 0);
+    console.error(err);
+  }
+  e.target.value='';
+}
+
+function parseBCRText(text){
+  const lines=text.split('\n');
+  const result=[];
+  // BCR patterns: lines with amounts like "1.234,56" or "-1.234,56" or "1234.56"
+  // Try to find transaction rows: date + description + amount
+  const amountRe=/(-?\d{1,3}(?:[.,]\d{3})*[.,]\d{2})/g;
+  const dateRe=/\b(\d{2}[.\/-]\d{2}[.\/-]\d{2,4})\b/;
+  
+  // Strategy: find lines with a negative amount or lines that look like debit entries
+  const txnLines=[];
+  for(let i=0;i<lines.length;i++){
+    const line=lines[i].trim();
+    if(!line) continue;
+    const amounts=[...line.matchAll(amountRe)].map(m=>m[1]);
+    if(amounts.length===0) continue;
+    // Parse the last amount as the transaction value
+    const rawAmt=amounts[amounts.length-1].replace(/\./g,'').replace(',','.');
+    const amt=parseFloat(rawAmt);
+    if(isNaN(amt)||Math.abs(amt)<1||Math.abs(amt)>100000) continue;
+    // Look for negative amounts or "Debit" keyword
+    const isDebit=amt<0||line.toLowerCase().includes('debit')||line.toLowerCase().includes('plata')||line.toLowerCase().includes('cumparare')||line.toLowerCase().includes('transfer out')||line.toLowerCase().includes('retragere');
+    if(!isDebit && amt>0) continue;
+    // Extract description: everything before the amounts
+    const firstAmtIdx=line.indexOf(amounts[0]);
+    let desc=line.substring(0,firstAmtIdx).replace(dateRe,'').replace(/^\s*[-–]\s*/,'').trim();
+    // Clean up desc
+    desc=desc.replace(/\s{2,}/g,' ').replace(/[|]/g,'').trim();
+    if(!desc || desc.length<3) desc='Tranzacție';
+    result.push({desc, amt:Math.abs(amt), cat:categorize(desc)});
+  }
+
+  // If nothing found, try simpler approach: any line with a clear negative number
+  if(result.length===0){
+    for(const line of lines){
+      const m=line.match(/-(\d{1,3}(?:[.,]\d{3})*[.,]\d{2})/);
+      if(!m) continue;
+      const amt=parseFloat(m[1].replace(/\./g,'').replace(',','.'));
+      if(isNaN(amt)||amt<1) continue;
+      const desc=line.replace(m[0],'').replace(dateRe,'').replace(/\s{2,}/g,' ').trim()||'Tranzacție';
+      result.push({desc, amt, cat:categorize(desc)});
+    }
+  }
+  return result;
+}
+
+function showPDFResult(success, count, rawText){
+  const el=document.getElementById('pdf-result');
+  el.classList.remove('pdf-warn');
+  if(success){
+    el.textContent=`✅ Am extras ${count} tranzacții din PDF! Verifică categoriile în tab-ul Tranzacții.`;
+    el.classList.add('show');
+  } else {
+    el.classList.add('pdf-warn');
+    el.innerHTML=`⚠️ Nu am putut extrage automat tranzacțiile din acest PDF. Formatul BCR poate varia.<br><br>Încearcă să convertești PDF-ul cu <b>smallpdf.com</b> în Excel, apoi importă ca CSV.`;
+    el.classList.add('show');
+  }
+  switchTab('dashboard', document.querySelector('.tab'));
+}
+
+// ── CSV Parser ────────────────────────────────────────────────────────────────
+function handleCSV(e){
+  const f=e.target.files[0]; if(!f) return;
+  document.getElementById('file-name').textContent=f.name;
+  const r=new FileReader();
+  r.onload=ev=>{
+    const parsed=parseCSV(ev.target.result);
+    if(parsed.length>0){
+      transactions=parsed;
+      const el=document.getElementById('pdf-result');
+      el.classList.remove('pdf-warn');
+      el.textContent=`✅ Am încărcat ${parsed.length} tranzacții din CSV!`;
+      el.classList.add('show');
+      refresh(); renderTxns();
+    } else {
+      alert("Format necunoscut. CSV cu coloane: Dată, Descriere, Sumă (negative=cheltuieli)");
+    }
+  };
+  r.readAsText(f,"UTF-8");
+  e.target.value='';
+}
+
+function parseCSV(text){
+  const lines=text.split("\n").filter(l=>l.trim());
+  const result=[];
+  for(const line of lines.slice(1)){
+    const cols=line.split(/[,;]/).map(c=>c.replace(/"/g,"").trim());
+    if(cols.length<2) continue;
+    const amtRaw=cols.find(c=>/^-?\d+([.,]\d+)?$/.test(c.replace(/\s/g,"")));
+    if(!amtRaw) continue;
+    const amt=parseFloat(amtRaw.replace(",","."));
+    if(isNaN(amt)||amt>=0) continue;
+    const desc=cols[1]||cols[0]||"Tranzacție";
+    result.push({desc,amt:Math.abs(amt),cat:categorize(desc)});
+  }
+  return result;
+}
+
+// ── Charts ────────────────────────────────────────────────────────────────────
+let pieChart,barChart;
+function buildCharts(byCat,targetVal){
+  if(pieChart) pieChart.destroy();
+  pieChart=new Chart(document.getElementById('pie-chart'),{
+    type:'doughnut',
+    data:{labels:byCat.map(c=>c.name),datasets:[{data:byCat.map(c=>c.value),backgroundColor:byCat.map(c=>CATS[c.name]?.color||'#ccc'),borderWidth:2,borderColor:'#0f0c29'}]},
+    options:{responsive:true,plugins:{legend:{display:true,position:'bottom',labels:{color:'#9ca3af',font:{size:10},boxWidth:10,padding:8}}},cutout:'60%'}
+  });
+  const months=[1,2,3,4,5,6,9,12,18,24];
+  if(barChart) barChart.destroy();
+  barChart=new Chart(document.getElementById('bar-chart'),{
+    type:'bar',
+    data:{labels:months.map(m=>`L${m}`),datasets:[{data:months.map(m=>targetVal*m),backgroundColor:months.map(m=>{const v=targetVal*m;return v<3000?'rgba(248,113,113,.8)':v<6000?'rgba(251,191,36,.8)':'rgba(74,222,128,.8)';}),borderRadius:6}]},
+    options:{responsive:true,plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#6b7280',font:{size:10}},grid:{display:false}},y:{ticks:{color:'#6b7280',font:{size:9}},grid:{color:'rgba(255,255,255,.05)'}}}}
+  });
+}
+
+// ── Refresh ───────────────────────────────────────────────────────────────────
+function refresh(){
+  const income=+document.getElementById('income').value||0;
+  const target=+document.getElementById('target').value||0;
+  document.getElementById('income2').value=income;
+  document.getElementById('target2').value=target;
+  const total=transactions.reduce((s,t)=>s+t.amt,0);
+  const balance=income-total;
+  document.getElementById('s-income').textContent=income.toLocaleString()+' RON';
+  document.getElementById('s-total').textContent=total.toFixed(0)+' RON';
+  document.getElementById('s-txn-count').textContent=transactions.length+' tranzacții';
+  document.getElementById('s-balance').textContent=balance.toFixed(0)+' RON';
+  document.getElementById('s-balance').style.color=balance>=0?'var(--purple-light)':'var(--red)';
+  document.getElementById('s-savings').textContent=Math.max(0,balance).toFixed(0)+' RON';
+  ['p3','p6','p12','p24'].forEach((id,i)=>{document.getElementById(id).textContent=(target*[3,6,12,24][i]).toLocaleString()+' RON';});
+  const catMap={};
+  transactions.forEach(t=>{catMap[t.cat]=(catMap[t.cat]||0)+t.amt;});
+  const byCat=Object.entries(catMap).map(([name,value])=>({name,value})).sort((a,b)=>b.value-a.value);
+  const catList=document.getElementById('cat-list');
+  catList.innerHTML='';
+  byCat.forEach(({name,value})=>{
+    const d=CATS[name]||CATS["Altele"];
+    const pct=total>0?((value/total)*100).toFixed(0):0;
+    catList.innerHTML+=`<div class="cat-item"><span class="cat-icon">${d.icon}</span><span class="cat-name">${name}</span><div class="cat-bar-wrap"><div class="cat-bar" style="width:${pct}%;background:${d.color}"></div></div><span class="cat-amount" style="color:${d.color}">${value.toFixed(0)}</span><span class="cat-pct">${pct}%</span></div>`;
+  });
+  const tips=byCat.filter(c=>c.name!=='Credit & Bancă').slice(0,3);
+  document.getElementById('tips-list').innerHTML=tips.map(c=>{const d=CATS[c.name]||CATS["Altele"];return `<div class="tip-item">${d.icon} Reducând <b style="color:${d.color}">${c.name}</b> cu 10% → <b style="color:var(--green)">+${(c.value*0.1).toFixed(0)} RON/lună</b></div>`;}).join('');
+  buildCharts(byCat,target);
+}
+
+function renderTxns(){
+  const list=document.getElementById('txn-list');
+  list.innerHTML='';
+  transactions.forEach((t,i)=>{
+    const d=CATS[t.cat]||CATS["Altele"];
+    const opts=Object.keys(CATS).map(c=>`<option value="${c}" ${c===t.cat?'selected':''}>${c}</option>`).join('');
+    list.innerHTML+=`<div class="txn-item"><div class="txn-icon">${d.icon}</div><div style="flex:1;min-width:0;"><div class="txn-desc">${t.desc}</div><select class="cat-select" style="background:${d.color}22;color:${d.color};border-color:${d.color}44;" onchange="changeCat(${i},this.value)">${opts}</select></div><div class="txn-amount">-${t.amt.toFixed(0)} RON</div></div>`;
+  });
+}
+
+function changeCat(i,v){transactions[i].cat=v;refresh();renderTxns();}
+function syncIncome(el){document.getElementById('income').value=el.value;refresh();}
+function syncTarget(el){document.getElementById('target').value=el.value;refresh();}
+function switchTab(id,btn){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById('page-'+id).classList.add('active');
+  btn.classList.add('active');
+}
+
+refresh(); renderTxns();
+</script>
+</body>
+</html>
