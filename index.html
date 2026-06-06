@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"/>
+<meta name="theme-color" content="#7c3aed"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<meta name="apple-mobile-web-app-title" content="Extract Bancar"/>
+<title>💳 Extract Bancar BCR</title>
+<script id="manifest-data" type="application/json">{"name":"Extract Bancar BCR","short_name":"Extract","start_url":".","display":"standalone","background_color":"#0f0c29","theme_color":"#7c3aed","icons":[{"src":"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'%3E%3Crect width='192' height='192' rx='32' fill='%237c3aed'/%3E%3Ctext x='96' y='130' text-anchor='middle' font-size='100'%3E💳%3C/text%3E%3C/svg%3E","sizes":"192x192","type":"image/svg+xml"}]}</script>
+<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'%3E%3Crect width='180' height='180' rx='28' fill='%237c3aed'/%3E%3Ctext x='90' y='122' text-anchor='middle' font-size='90'%3E💳%3C/text%3E%3C/svg%3E"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+:root{--bg:#0f0c29;--bg2:#1a1630;--bg3:#231f3a;--purple:#7c3aed;--pl:#a78bfa;--green:#4ade80;--red:#f87171;--yellow:#fbbf24;--blue:#60a5fa;--text:#e2e8f0;--muted:#6b7280;--border:rgba(255,255,255,0.08);}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;overflow-x:hidden;}
+body{display:flex;flex-direction:column;max-width:500px;margin:0 auto;}
+.header{background:rgba(124,58,237,0.15);border-bottom:1px solid var(--border);padding:12px 14px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;backdrop-filter:blur(12px);}
+.header-title{font-size:16px;font-weight:800;color:var(--pl);}
+.header-sub{font-size:10px;color:var(--muted);margin-top:1px;}
+.btns{display:flex;flex-direction:column;gap:5px;align-items:flex-end;}
+.ibtn{color:#fff;border:none;padding:6px 11px;border-radius:16px;font-size:11px;font-weight:700;cursor:pointer;}
+.btn-pdf{background:linear-gradient(135deg,#dc2626,#f87171);}
+.tabs{display:flex;background:var(--bg2);border-bottom:1px solid var(--border);}
+.tab{flex:1;padding:10px 4px;text-align:center;font-size:11px;font-weight:600;color:var(--muted);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;transition:all .2s;}
+.tab.active{color:var(--pl);border-bottom-color:var(--pl);background:rgba(167,139,250,0.06);}
+.page{display:none;padding:12px 12px 80px;}
+.page.active{display:block;}
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:13px 15px;margin-bottom:11px;}
+.card-title{font-size:12px;font-weight:700;color:var(--text);margin-bottom:11px;}
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-bottom:11px;}
+.stat{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:11px 13px;}
+.stat-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;}
+.stat-value{font-size:19px;font-weight:800;margin-top:3px;}
+.stat-sub{font-size:10px;color:var(--muted);margin-top:1px;}
+.irow{display:flex;align-items:center;gap:8px;margin-bottom:8px;}
+.ilabel{font-size:11px;color:var(--muted);flex:1;}
+.ifield{background:rgba(167,139,250,0.12);border:1px solid rgba(167,139,250,0.3);border-radius:8px;padding:6px 10px;color:var(--pl);font-size:14px;font-weight:700;width:100px;text-align:right;}
+.iunit{font-size:11px;color:var(--muted);width:28px;}
+.ci{display:flex;align-items:center;gap:8px;margin-bottom:8px;}
+.ci-icon{font-size:15px;width:20px;text-align:center;}
+.ci-name{font-size:11px;color:var(--text);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.ci-bw{width:65px;background:rgba(255,255,255,0.06);border-radius:6px;height:6px;overflow:hidden;}
+.ci-b{height:100%;border-radius:6px;transition:width .6s;}
+.ci-amt{font-size:12px;font-weight:700;width:58px;text-align:right;}
+.ci-pct{font-size:10px;color:var(--muted);width:26px;text-align:right;}
+.ti{display:flex;align-items:center;gap:9px;padding:9px 0;border-bottom:1px solid var(--border);}
+.ti-icon{font-size:17px;width:32px;height:32px;background:rgba(255,255,255,0.06);border-radius:9px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.ti-desc{font-size:12px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.ti-loc{font-size:10px;color:var(--muted);margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.ti-amt{font-size:13px;font-weight:700;color:var(--red);white-space:nowrap;}
+.ti-cr{color:var(--green);}
+select.csel{font-size:10px;padding:2px 4px;background:var(--bg3);border:1px solid var(--purple);border-radius:6px;color:var(--pl);margin-top:2px;}
+.pr{display:flex;justify-content:space-between;align-items:center;background:rgba(255,255,255,0.04);border-radius:10px;padding:10px 13px;margin-bottom:7px;}
+.pr-label{font-size:12px;color:var(--muted);}
+.pr-value{font-size:15px;font-weight:800;}
+.tipbox{background:rgba(167,139,250,0.08);border:1px solid rgba(167,139,250,0.2);border-radius:12px;padding:11px 13px;margin-top:9px;}
+.tiptitle{font-size:12px;color:var(--pl);font-weight:700;margin-bottom:7px;}
+.tipitem{font-size:11px;color:var(--muted);margin-bottom:4px;}
+.overlay{display:none;position:fixed;inset:0;background:rgba(15,12,41,0.93);z-index:300;flex-direction:column;align-items:center;justify-content:center;gap:14px;}
+.overlay.show{display:flex;}
+.spinner{width:46px;height:46px;border:4px solid rgba(167,139,250,0.2);border-top-color:var(--pl);border-radius:50%;animation:spin .8s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg)}}
+.ovtext{font-size:14px;color:var(--pl);font-weight:600;}
+.ovsub{font-size:12px;color:var(--muted);}
+.banner{display:none;border-radius:12px;padding:11px 14px;margin-bottom:11px;font-size:12px;}
+.banner.show{display:block;}
+.banner-ok{background:rgba(74,222,128,0.1);border:1px solid rgba(74,222,128,0.3);color:var(--green);}
+.banner-warn{background:rgba(251,191,36,0.1);border:1px solid rgba(251,191,36,0.3);color:var(--yellow);}
+.inst{display:none;position:fixed;bottom:0;left:0;right:0;max-width:500px;margin:0 auto;background:linear-gradient(135deg,var(--purple),#5b21b6);padding:13px 16px;z-index:200;border-top:1px solid rgba(255,255,255,0.15);}
+.inst.show{display:flex;align-items:center;gap:11px;}
+.inst-text{flex:1;font-size:13px;font-weight:600;}
+.inst-text small{display:block;font-size:10px;opacity:.7;font-weight:400;margin-top:2px;}
+.inst-yes{background:#fff;color:var(--purple);border:none;padding:7px 14px;border-radius:14px;font-size:12px;font-weight:700;cursor:pointer;}
+.inst-no{background:transparent;border:none;color:rgba(255,255,255,.6);font-size:18px;cursor:pointer;padding:0 4px;}
+/* date badge */
+.date-badge{display:inline-block;font-size:10px;color:var(--muted);background:rgba(255,255,255,0.05);border-radius:8px;padding:1px 6px;margin-top:1px;}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div>
+    <div class="header-title">💳 Extract BCR</div>
+    <div class="header-sub" id="fname">Date demonstrative</div>
+  </div>
+  <div class="btns">
+    <button class="ibtn btn-pdf" onclick="document.getElementById('pinp').click()">📄 Importă PDF BCR</button>
+  </div>
+  <input type="file" id="pinp" accept=".pdf" style="display:none" onchange="handlePDF(event)"/>
+</div>
+
+<div class="tabs">
+  <button class="tab active" onclick="switchTab('dashboard',this)">📊 Tablou</button>
+  <button class="tab" onclick="switchTab('tranzactii',this)">📋 Tranzacții</button>
+  <button class="tab" onclick="switchTab('credit',this)">🏠 Credit</button>
+</div>
+
+<div class="overlay" id="overlay">
+  <div class="spinner"></div>
+  <div class="ovtext">Citesc PDF-ul BCR...</div>
+  <div class="ovsub">Extrag tranzacțiile automat</div>
+</div>
+
+<!-- DASHBOARD -->
+<div id="page-dashboard" class="page active">
+  <div class="banner" id="banner"></div>
+
+  <div class="card">
+    <div class="card-title">⚙️ Setări</div>
+    <div class="irow">
+      <span class="ilabel">💰 Venit lunar net</span>
+      <input class="ifield" type="number" id="income" value="5500" oninput="refresh()"/>
+      <span class="iunit">RON</span>
+    </div>
+    <div class="irow">
+      <span class="ilabel">🎯 Economii țintă/lună</span>
+      <input class="ifield" id="target" type="number" value="500" style="border-color:rgba(251,191,36,.4);color:#fbbf24;" oninput="refresh()"/>
+      <span class="iunit">RON</span>
+    </div>
+  </div>
+
+  <div class="stats">
+    <div class="stat" style="border-left:3px solid var(--green)">
+      <div class="stat-label">Venit</div>
+      <div class="stat-value" id="s-inc" style="color:var(--green)">0</div>
+      <div class="stat-sub">lunar net</div>
+    </div>
+    <div class="stat" style="border-left:3px solid var(--red)">
+      <div class="stat-label">Cheltuieli</div>
+      <div class="stat-value" id="s-tot" style="color:var(--red)">0</div>
+      <div class="stat-sub" id="s-cnt">0 tranzacții</div>
+    </div>
+    <div class="stat" style="border-left:3px solid var(--pl)">
+      <div class="stat-label">Sold rămas</div>
+      <div class="stat-value" id="s-bal" style="color:var(--pl)">0</div>
+      <div class="stat-sub">după cheltuieli</div>
+    </div>
+    <div class="stat" style="border-left:3px solid var(--yellow)">
+      <div class="stat-label">Economii pos.</div>
+      <div class="stat-value" id="s-sav" style="color:var(--yellow)">0</div>
+      <div class="stat-sub">spre credit</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">🥧 Distribuție cheltuieli</div>
+    <canvas id="pie-chart" height="220"></canvas>
+  </div>
+  <div class="card">
+    <div class="card-title">📋 Pe categorii</div>
+    <div id="cat-list"></div>
+  </div>
+</div>
+
+<!-- TRANZACȚII -->
+<div id="page-tranzactii" class="page">
+  <div class="card" style="margin-bottom:10px;">
+    <div style="font-size:11px;color:var(--muted);">Tranzacții extrase din PDF-ul BCR. Apasă pe categorie pentru a o modifica.</div>
+  </div>
+  <div id="txn-list"></div>
+</div>
+
+<!-- CREDIT -->
+<div id="page-credit" class="page">
+  <div class="card">
+    <div class="card-title">⚙️ Parametri</div>
+    <div class="irow"><span class="ilabel">💰 Venit lunar net</span><input class="ifield" type="number" id="inc2" value="5500" oninput="syncI(this)"/><span class="iunit">RON</span></div>
+    <div class="irow"><span class="ilabel">🎯 Economii țintă/lună</span><input class="ifield" type="number" id="tgt2" value="500" style="border-color:rgba(251,191,36,.4);color:#fbbf24;" oninput="syncT(this)"/><span class="iunit">RON</span></div>
+  </div>
+  <div class="card"><div class="card-title">📈 Acumulare economii</div><canvas id="bar-chart" height="180"></canvas></div>
+  <div class="card">
+    <div class="card-title">🗓 Proiecție</div>
+    <div class="pr"><span class="pr-label">⏳ 3 luni</span><span class="pr-value" id="p3" style="color:var(--red)"></span></div>
+    <div class="pr"><span class="pr-label">⏳ 6 luni</span><span class="pr-value" id="p6" style="color:var(--yellow)"></span></div>
+    <div class="pr"><span class="pr-label">⏳ 12 luni</span><span class="pr-value" id="p12" style="color:var(--green)"></span></div>
+    <div class="pr"><span class="pr-label">⏳ 24 luni</span><span class="pr-value" id="p24" style="color:var(--blue)"></span></div>
+    <div class="tipbox"><div class="tiptitle">💡 Unde poți economisi mai mult</div><div id="tips-list"></div></div>
+  </div>
+</div>
+
+<div class="inst" id="inst-banner">
+  <div>💳</div>
+  <div class="inst-text">Instalează aplicația<small>Acces rapid de pe ecranul principal</small></div>
+  <button class="inst-yes" id="inst-yes">Instalează</button>
+  <button class="inst-no" onclick="document.getElementById('inst-banner').classList.remove('show')">✕</button>
+</div>
+
+<script>
+// Manifest
+(function(){const d=document.getElementById('manifest-data').textContent;const l=document.createElement('link');l.rel='manifest';l.href=URL.createObjectURL(new Blob([d],{type:'application/json'}));document.head.appendChild(l);})();
+
+// SW
+if('serviceWorker' in navigator){const sw=`const C='ebv3';self.addEventListener('install',e=>e.waitUntil(caches.open(C).then(c=>c.addAll(['./'])).then(()=>self.skipWaiting())));self.addEventListener('activate',e=>e.waitUntil(self.clients.claim()));self.addEventListener('fetch',e=>{if(e.request.method!=='GET')return;e.respondWith(caches.match(e.request).then(r=>r||fetch(e.request)));});`;navigator.serviceWorker.register(URL.createObjectURL(new Blob([sw],{type:'application/javascript'}))).catch(()=>{});}
+
+// Install
+let dp;
+window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();dp=e;document.getElementById('inst-banner').classList.add('show');});
+document.getElementById('inst-yes').onclick=()=>{if(dp){dp.prompt();dp=null;}document.getElementById('inst-banner').classList.remove('show');};
+const isIOS=/iPad|iPhone|iPod/.test(navigator.userAgent)&&!window.MSStream;
+if(isIOS&&!window.matchMedia('(display-mode: standalone)').matches){const b=document.getElementById('inst-banner');b.querySelector('.inst-text').innerHTML='Instalează pe iPhone<small>Apasă <b>Partajează</b> → <b>Adaugă pe ecran</b></small>';b.querySelector('.inst-yes').style.display='none';b.classList.add('show');setTimeout(()=>b.classList.remove('show'),6000);}
+
+pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+// ── CATEGORIES ───────────────────────────────────────────────────────────────
+const CATS={
+  "Mâncare & Restaurant":{kw:["kaufland","lidl","mega image","megaimage","auchan","penny","profi","carrefour","mcdonald","kfc","pizza","restaurant","sushi","bistro","cafe","bar","pub","brutarie","patiserie","food","supermarket","sibianul","jina","stradale","pranzo"],color:"#FF6B6B",icon:"🍔"},
+  "Transport":{kw:["uber","bolt","taxi","ratb","metrou","stb sa","stb","benzinarie","petrom","mol ","rompetrol","omv","autostrada","parking","parcare","carwash","combustibil","motorina","benzina","amparcat","metrorex"],color:"#4ECDC4",icon:"🚗"},
+  "Utilități":{kw:["enel","engie","digi","orange","vodafone","telekom","rcs","rds","apa nova","electrica","gaz","internet","telefon","abonament","yoxo"],color:"#45B7D1",icon:"💡"},
+  "Sănătate":{kw:["farmacie","farmacia","catena","sensiblu","helpnet","clinica","stomatolog","dentist","optica","medicina","spital","cabinet","tei ","f tei"],color:"#96CEB4",icon:"💊"},
+  "Cumpărături":{kw:["emag","altex","flanco","dedeman","ikea","h&m","zara","reserved","pepco","decathlon","online","fashion","shop","store","magazin","easybox","bebetei","delivery solutions","nutricione","natulim","zooplus","fressnapf"],color:"#FFEAA7",icon:"🛍️"},
+  "Abonamente & Streaming":{kw:["netflix","spotify","youtube","hbo","cinema","teatru","muzeu","curs","udemy","streaming","crunchyroll","skyshowtime","revolut"],color:"#DDA0DD",icon:"📺"},
+  "Credit & Bancă":{kw:["rata credit","rata dobanda","asigurare","incasare rata","comision conversie","comision"],color:"#98FB98",icon:"🏦"},
+  "Sport & Sănătate":{kw:["neurosport","sport","fitness","gym","sala"],color:"#FFA07A",icon:"💪"},
+  "Altele":{kw:[],color:"#B0BEC5",icon:"📦"}
+};
+
+function categorize(desc,loc){
+  const txt=((desc||"")+" "+(loc||"")).toLowerCase();
+  for(const [cat,d] of Object.entries(CATS)){
+    if(cat==="Altele") continue;
+    if(d.kw.some(k=>txt.includes(k))) return cat;
+  }
+  return "Altele";
+}
+
+// ── SAMPLE DATA ───────────────────────────────────────────────────────────────
+let transactions=[
+  {desc:"Google Pay - KAUFLAND RO",loc:"KAUFLAND BUCURESTI",amt:23.93,cat:"Mâncare & Restaurant",date:"30-04-2026",credit:false},
+  {desc:"Google Pay - Revolut",loc:"IE Revolut Dublin",amt:59.95,cat:"Abonamente & Streaming",date:"01-05-2026",credit:false},
+  {desc:"Google Pay - MOL",loc:"MOL 91003 Bucuresti",amt:198.02,cat:"Transport",date:"02-05-2026",credit:false},
+  {desc:"Google Pay - SIBIANUL JINA",loc:"SIBIANUL JINA",amt:67.69,cat:"Mâncare & Restaurant",date:"05-05-2026",credit:false},
+  {desc:"Google Pay - Fressnapf",loc:"Fressnapf Bukarest",amt:79.92,cat:"Cumpărături",date:"05-05-2026",credit:false},
+  {desc:"M4M - STB SA",loc:"STB SA BUCURESTI",amt:3.00,cat:"Transport",date:"07-05-2026",credit:false},
+  {desc:"Google Pay - IKEA",loc:"IKEA ROMANIA Bucuresti",amt:59.80,cat:"Cumpărături",date:"17-05-2026",credit:false},
+  {desc:"Incasare rata credit",loc:"",amt:1402.58,cat:"Credit & Bancă",date:"15-05-2026",credit:false},
+  {desc:"Incasare rata dobanda",loc:"",amt:779.99,cat:"Credit & Bancă",date:"15-05-2026",credit:false},
+  {desc:"Asigurare de viata",loc:"",amt:50.81,cat:"Credit & Bancă",date:"15-05-2026",credit:false},
+  {desc:"Google Pay - LIDL",loc:"LIDL RO BUCURESTI",amt:63.71,cat:"Mâncare & Restaurant",date:"18-05-2026",credit:false},
+  {desc:"Google Pay - ALTEX",loc:"ALTEX SECTOR 3",amt:157.98,cat:"Cumpărături",date:"19-05-2026",credit:false},
+  {desc:"Crunchyroll",loc:"CRUNCHYROLL.COM",amt:224.75,cat:"Abonamente & Streaming",date:"11-05-2026",credit:false},
+  {desc:"Orange YOXO",loc:"WWW.ORANGE.RO/YOXO",amt:26.05,cat:"Utilități",date:"13-05-2026",credit:false},
+];
+
+// ── BCR PDF PARSER ────────────────────────────────────────────────────────────
+async function handlePDF(e){
+  const file=e.target.files[0]; if(!file) return;
+  document.getElementById('fname').textContent=file.name;
+  document.getElementById('overlay').classList.add('show');
+  try{
+    const buf=await file.arrayBuffer();
+    const pdf=await pdfjsLib.getDocument({data:buf}).promise;
+    let fullText='';
+    for(let i=1;i<=pdf.numPages;i++){
+      const page=await pdf.getPage(i);
+      const content=await page.getTextContent();
+      // Group by Y position to reconstruct lines
+      const byY={};
+      content.items.forEach(item=>{
+        const y=Math.round(item.transform[5]);
+        if(!byY[y]) byY[y]=[];
+        byY[y].push({x:item.transform[4],str:item.str});
+      });
+      Object.keys(byY).sort((a,b)=>b-a).forEach(y=>{
+        const line=byY[y].sort((a,b)=>a.x-b.x).map(i=>i.str).join(' ');
+        fullText+=line+'\n';
+      });
+    }
+    const result=parseBCR(fullText);
+    document.getElementById('overlay').classList.remove('show');
+    if(result.length>0){
+      transactions=result;
+      showBanner(true,result);
+      refresh(); renderTxns();
+      switchTab('dashboard',document.querySelector('.tab'));
+    } else {
+      document.getElementById('overlay').classList.remove('show');
+      showBanner(false,[]);
+    }
+  } catch(err){
+    document.getElementById('overlay').classList.remove('show');
+    showBanner(false,[]);
+    console.error(err);
+  }
+  e.target.value='';
+}
+
+function parseBCR(text){
+  const result=[];
+  // BCR format key insight:
+  // Each transaction block contains "Suma platita X RON" or "Suma in valuta contului X RON"
+  // and "Locatie: CODE RO MERCHANT NAME"
+  // and a date like "DD-MM-YYYY HH:MM"
+  // Debit entries have amount in Debit column, credit entries have 0,00 in Debit
+
+  // Strategy: find all "Suma platita" occurrences and extract context
+  const lines=text.split('\n');
+  
+  // Join all text for regex search
+  const blob=text.replace(/\n/g,' ');
+  
+  // Pattern 1: "Suma platita X RON" with location
+  // Pattern 2: "Suma in valuta contului X RON" (foreign currency)
+  // Pattern 3: Direct debits like "Incasare rata"
+  
+  // Find transaction blocks by date pattern at start
+  const dateRe=/(\d{2}-\d{2}-\d{4})\s+\d{2}:\d{2}/g;
+  const dateMatches=[...blob.matchAll(dateRe)];
+  
+  for(let i=0;i<dateMatches.length;i++){
+    const start=dateMatches[i].index;
+    const end=i+1<dateMatches.length?dateMatches[i+1].index:blob.length;
+    const block=blob.substring(start,end);
+    const dateStr=dateMatches[i][1];
+    
+    // Skip header-like blocks
+    if(block.includes('Sold contabil initial')||block.includes('Data operatiunii')) continue;
+    
+    // Extract amount from "Suma platita X RON" or "Suma in valuta contului X RON"
+    let amt=null;
+    let isCredit=false;
+    
+    const spMatch=block.match(/Suma platita\s+([\d\s]+[.,]\d{2})\s*RON/);
+    const svMatch=block.match(/Suma in valuta contului\s+([\d\s]+[.,]\d{2})\s*RON/);
+    // For credit returns: "Suma X RON, Suma in valuta contului X RON"
+    const crMatch=block.match(/Tranz creditare[^,]*Suma\s+([\d\s]+[.,]\d{2})\s*RON/);
+    // Direct debit: "Incasare rata credit" etc
+    const directMatch=block.match(/\b(\d{1,3}(?:[.]\d{3})*[,]\d{2})\s+0[,]00\b/);
+    
+    if(crMatch){
+      // Credit/refund - skip or mark as credit
+      const raw=crMatch[1].replace(/\s/g,'').replace('.','').replace(',','.');
+      amt=parseFloat(raw);
+      isCredit=true;
+    } else if(spMatch){
+      const raw=spMatch[1].replace(/\s/g,'').replace(',','.');
+      amt=parseFloat(raw);
+    } else if(svMatch){
+      const raw=svMatch[1].replace(/\s/g,'').replace(',','.');
+      amt=parseFloat(raw);
+    } else if(directMatch){
+      // e.g. "1.402,58 0,00" - debit
+      const raw=directMatch[1].replace('.','').replace(',','.');
+      amt=parseFloat(raw);
+    }
+    
+    if(!amt||isNaN(amt)||amt<0.5) continue;
+    
+    // Extract location
+    let loc='';
+    const locMatch=block.match(/Locatie:\s*[A-Z0-9]+\s+RO\s+([^\.\,]+?)(?:\s+(?:Bucuresti|BUCURESTI|Data_Ora|Cluj|Iasi|Mun\.))/);
+    if(locMatch) loc=locMatch[1].trim();
+    else {
+      const locMatch2=block.match(/Locatie:\s*(?:[A-Z0-9]+\s+)?(?:RO\s+)?([A-Z][^\n\.]{3,40})/);
+      if(locMatch2) loc=locMatch2[1].trim();
+    }
+    
+    // Extract description type
+    let desc='Tranzacție';
+    if(block.includes('Google Pay')) desc='Google Pay';
+    else if(block.includes('M4M')) desc='M4M';
+    else if(block.includes('Incasare rata credit')) desc='Rata credit';
+    else if(block.includes('Incasare rata dobanda')) desc='Dobândă credit';
+    else if(block.includes('Incasare Cost Asigurare')) desc='Asigurare credit';
+    else if(block.includes('Comision conversie')) desc='Comision conversie valută';
+    else if(block.includes('Tranz creditare')) desc='Rambursare/Credit';
+    else if(block.includes('Reglare sume')) desc='Reglare sume';
+    else if(block.includes('DREPTURI SALARIALE')||block.includes('Decontare')) desc='Salariu';
+    
+    // Full desc with location
+    const fullDesc=loc?`${desc} - ${loc}`:desc;
+    
+    result.push({
+      desc:fullDesc,
+      loc,
+      amt,
+      cat:categorize(fullDesc,loc),
+      date:dateStr,
+      credit:isCredit
+    });
+  }
+  
+  return result;
+}
+
+function showBanner(ok,txns){
+  const el=document.getElementById('banner');
+  el.className='banner show '+(ok?'banner-ok':'banner-warn');
+  if(ok){
+    const debits=txns.filter(t=>!t.credit);
+    const credits=txns.filter(t=>t.credit);
+    el.innerHTML=`✅ Am extras <b>${debits.length} cheltuieli</b>${credits.length>0?` și <b>${credits.length} rambursări</b>`:''} din PDF-ul BCR! Verifică categoriile în tab-ul Tranzacții.`;
+  } else {
+    el.innerHTML=`⚠️ Nu am putut extrage tranzacțiile. Asigură-te că e un PDF de la BCR (extras de cont George).`;
+  }
+}
+
+// ── CHARTS ───────────────────────────────────────────────────────────────────
+let pieChart,barChart;
+function buildCharts(byCat,tgt){
+  if(pieChart) pieChart.destroy();
+  const debCats=byCat.filter(c=>c.value>0);
+  pieChart=new Chart(document.getElementById('pie-chart'),{
+    type:'doughnut',
+    data:{labels:debCats.map(c=>c.name),datasets:[{data:debCats.map(c=>c.value),backgroundColor:debCats.map(c=>CATS[c.name]?.color||'#ccc'),borderWidth:2,borderColor:'#0f0c29'}]},
+    options:{responsive:true,plugins:{legend:{display:true,position:'bottom',labels:{color:'#9ca3af',font:{size:10},boxWidth:10,padding:7}}},cutout:'58%'}
+  });
+  const months=[1,2,3,4,5,6,9,12,18,24];
+  if(barChart) barChart.destroy();
+  barChart=new Chart(document.getElementById('bar-chart'),{
+    type:'bar',
+    data:{labels:months.map(m=>`L${m}`),datasets:[{data:months.map(m=>tgt*m),backgroundColor:months.map(m=>{const v=tgt*m;return v<3000?'rgba(248,113,113,.8)':v<6000?'rgba(251,191,36,.8)':'rgba(74,222,128,.8)';}),borderRadius:6}]},
+    options:{responsive:true,plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#6b7280',font:{size:10}},grid:{display:false}},y:{ticks:{color:'#6b7280',font:{size:9}},grid:{color:'rgba(255,255,255,.05)'}}}}
+  });
+}
+
+// ── REFRESH ───────────────────────────────────────────────────────────────────
+function refresh(){
+  const income=+document.getElementById('income').value||0;
+  const tgt=+document.getElementById('target').value||0;
+  document.getElementById('inc2').value=income;
+  document.getElementById('tgt2').value=tgt;
+  
+  const debits=transactions.filter(t=>!t.credit);
+  const total=debits.reduce((s,t)=>s+t.amt,0);
+  const credits=transactions.filter(t=>t.credit).reduce((s,t)=>s+t.amt,0);
+  const balance=income-total+credits;
+  
+  document.getElementById('s-inc').textContent=income.toLocaleString()+' RON';
+  document.getElementById('s-tot').textContent=total.toFixed(0)+' RON';
+  document.getElementById('s-cnt').textContent=debits.length+' cheltuieli';
+  document.getElementById('s-bal').textContent=balance.toFixed(0)+' RON';
+  document.getElementById('s-bal').style.color=balance>=0?'var(--pl)':'var(--red)';
+  document.getElementById('s-sav').textContent=Math.max(0,balance).toFixed(0)+' RON';
+  
+  ['p3','p6','p12','p24'].forEach((id,i)=>{document.getElementById(id).textContent=(tgt*[3,6,12,24][i]).toLocaleString()+' RON';});
+  
+  const catMap={};
+  debits.forEach(t=>{catMap[t.cat]=(catMap[t.cat]||0)+t.amt;});
+  const byCat=Object.entries(catMap).map(([name,value])=>({name,value})).sort((a,b)=>b.value-a.value);
+  
+  // Category list
+  const cl=document.getElementById('cat-list');
+  cl.innerHTML='';
+  byCat.forEach(({name,value})=>{
+    const d=CATS[name]||CATS["Altele"];
+    const pct=total>0?((value/total)*100).toFixed(0):0;
+    cl.innerHTML+=`<div class="ci"><span class="ci-icon">${d.icon}</span><span class="ci-name">${name}</span><div class="ci-bw"><div class="ci-b" style="width:${pct}%;background:${d.color}"></div></div><span class="ci-amt" style="color:${d.color}">${value.toFixed(0)}</span><span class="ci-pct">${pct}%</span></div>`;
+  });
+  
+  // Tips
+  const tips=byCat.filter(c=>c.name!=='Credit & Bancă').slice(0,3);
+  document.getElementById('tips-list').innerHTML=tips.map(c=>{const d=CATS[c.name]||CATS["Altele"];return `<div class="tipitem">${d.icon} Reducând <b style="color:${d.color}">${c.name}</b> cu 10% → <b style="color:var(--green)">+${(c.value*0.1).toFixed(0)} RON/lună</b></div>`;}).join('');
+  
+  buildCharts(byCat,tgt);
+}
+
+function renderTxns(){
+  const list=document.getElementById('txn-list');
+  list.innerHTML='';
+  // Show debits first, then credits
+  const sorted=[...transactions].sort((a,b)=>(a.credit?1:0)-(b.credit?1:0));
+  sorted.forEach((t,i)=>{
+    const realIdx=transactions.indexOf(t);
+    const d=CATS[t.cat]||CATS["Altele"];
+    const opts=Object.keys(CATS).map(c=>`<option value="${c}" ${c===t.cat?'selected':''}>${c}</option>`).join('');
+    list.innerHTML+=`<div class="ti">
+      <div class="ti-icon">${t.credit?'↩️':d.icon}</div>
+      <div style="flex:1;min-width:0;">
+        <div class="ti-desc">${t.desc}</div>
+        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+          <span class="date-badge">${t.date||''}</span>
+          ${!t.credit?`<select class="csel" style="background:${d.color}22;color:${d.color};border-color:${d.color}44;" onchange="changeCat(${realIdx},this.value)">${opts}</select>`:'<span style="font-size:10px;color:var(--green)">rambursare</span>'}
+        </div>
+      </div>
+      <div class="ti-amt ${t.credit?'ti-cr':''}">${t.credit?'+':'−'}${t.amt.toFixed(2)} RON</div>
+    </div>`;
+  });
+}
+
+function changeCat(i,v){transactions[i].cat=v;refresh();renderTxns();}
+function syncI(el){document.getElementById('income').value=el.value;refresh();}
+function syncT(el){document.getElementById('target').value=el.value;refresh();}
+function switchTab(id,btn){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById('page-'+id).classList.add('active');
+  btn.classList.add('active');
+}
+
+refresh(); renderTxns();
+</script>
+</body>
+</html>
